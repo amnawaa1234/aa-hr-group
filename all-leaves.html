@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>All Applications · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="page-head">
+      <div>
+        <h1>All Applications</h1>
+        <p>Leave records for all staff.</p>
+      </div>
+      <button class="btn btn-light" id="exportBtn">Export CSV</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="filters">
+          <select id="fYear"></select>
+          <select id="fStatus">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select id="fType"><option value="">All leave types</option></select>
+          <select id="fStaff"><option value="">All staff</option></select>
+        </div>
+        <span class="muted" id="countLabel"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ref</th><th>Staff</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th>Decided</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const { sb, esc, fmtDays, fmtDate, fmtDateTime, statusBadge, refNo, dateRange, toast, errMsg } = AAHR;
+      const me = await AAHR.init({ active: 'all-leaves', roles: ['director', 'admin'] });
+      const $ = (id) => document.getElementById(id);
+      const thisYear = new Date().getFullYear();
+      for (let y = thisYear + 1; y >= thisYear - 4; y--) $('fYear').add(new Option(y, y, false, y === thisYear));
+
+      const [{ data: types }, { data: staff }] = await Promise.all([
+        sb.from('leave_types').select('id, name').order('sort_order'),
+        sb.from('profiles').select('id, full_name').order('full_name'),
+      ]);
+      types.forEach((t) => $('fType').add(new Option(t.name, t.id)));
+      staff.forEach((s) => $('fStaff').add(new Option(s.full_name, s.id)));
+      const nameOf = Object.fromEntries(staff.map((s) => [s.id, s.full_name]));
+
+      const params = new URLSearchParams(location.search);
+      if (params.get('staff')) $('fStaff').value = params.get('staff');
+
+      let rows = [];
+      async function load() {
+        const y = +$('fYear').value;
+        let q = sb.from('leave_applications')
+          .select('*, leave_types(name, color), profiles!leave_applications_user_id_fkey(full_name, staff_no, department)')
+          .gte('start_date', `${y}-01-01`).lte('start_date', `${y}-12-31`)
+          .order('start_date', { ascending: false });
+        if ($('fStatus').value) q = q.eq('status', $('fStatus').value);
+        if ($('fType').value) q = q.eq('leave_type_id', +$('fType').value);
+        if ($('fStaff').value) q = q.eq('user_id', $('fStaff').value);
+        const { data, error } = await q;
+        if (error) return toast(errMsg(error), 'error');
+        rows = data;
+        $('countLabel').textContent = `${rows.length} record(s)`;
+        $('rows').innerHTML = rows.length ? rows.map((a) => `<tr>
+            <td class="nowrap"><strong>${refNo(a)}</strong></td>
+            <td><strong>${esc(a.profiles.full_name)}</strong><br><small class="muted">${esc(a.profiles.department || '')}</small></td>
+            <td class="nowrap"><span class="type-dot" style="background:${esc(a.leave_types.color)}"></span>${esc(a.leave_types.name)}</td>
+            <td class="nowrap">${dateRange(a)}</td>
+            <td>${fmtDays(a.days)}</td>
+            <td>${statusBadge(a.status)}</td>
+            <td class="nowrap muted">${a.decided_at ? `${fmtDate(a.decided_at)}<br><small>by ${esc(nameOf[a.decided_by] || '-')}</small>` : '-'}</td>
+            <td><a href="view.html?id=${a.id}" class="btn btn-light btn-sm">View</a></td></tr>`).join('')
+          : '<tr><td colspan="8" class="empty">No applications match these filters.</td></tr>';
+      }
+      ['fYear', 'fStatus', 'fType', 'fStaff'].forEach((id) => $(id).addEventListener('change', load));
+
+      $('exportBtn').onclick = () => {
+        AAHR.downloadCsv(`aa-hr-leave-${$('fYear').value}.csv`, [
+          ['Ref', 'Staff', 'Staff No', 'Department', 'Leave Type', 'Start', 'End', 'Half Day', 'Days', 'Reason', 'Status', 'Applied On', 'Decided On', 'Decided By', 'Director Remarks'],
+          ...rows.map((a) => [refNo(a), a.profiles.full_name, a.profiles.staff_no, a.profiles.department, a.leave_types.name,
+            a.start_date, a.end_date, a.half_day, a.days, a.reason, a.status, fmtDateTime(a.created_at),
+            a.decided_at ? fmtDateTime(a.decided_at) : '', nameOf[a.decided_by] || '', a.director_remarks]),
+        ]);
+      };
+      load();
+    })();
+  </script>
+</body>
+</html>

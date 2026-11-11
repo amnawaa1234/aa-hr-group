@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Staff</h1>
+        <p>Manage staff details, roles and leave entitlements.</p>
+      </div>
+      <button class="btn btn-primary" id="addBtn">+ Add staff</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="filters">
+          <input type="text" id="search" placeholder="Search name, email, department…">
+          <select id="fRole">
+            <option value="">All roles</option>
+            <option value="staff">Staff</option>
+            <option value="director">Director</option>
+            <option value="admin">HR &amp; Admin</option>
+          </select>
+        </div>
+        <span class="muted" id="countLabel"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Staff ID</th><th>Department</th><th>Position</th><th>Role</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const { sb, esc, initials, toast, errMsg, modal, fmtDays, ROLE_LABEL } = AAHR;
+      const me = await AAHR.init({ active: 'staff', roles: ['admin'] });
+      const $ = (id) => document.getElementById(id);
+      const year = new Date().getFullYear();
+      const { data: types } = await sb.from('leave_types').select('*').eq('active', true).order('sort_order');
+      let staff = [];
+
+      async function load() {
+        const { data, error } = await sb.from('profiles').select('*').order('full_name');
+        if (error) return toast(errMsg(error), 'error');
+        staff = data;
+        render();
+      }
+
+      function render() {
+        const s = $('search').value.trim().toLowerCase();
+        const role = $('fRole').value;
+        const list = staff.filter((p) => (!role || p.role === role) &&
+          (!s || [p.full_name, p.email, p.department, p.position, p.staff_no].join(' ').toLowerCase().includes(s)));
+        $('countLabel').textContent = `${list.length} staff`;
+        $('rows').innerHTML = list.length ? list.map((p) => `<tr>
+            <td><div class="person"><span class="avatar light">${esc(initials(p.full_name))}</span>
+              <div><strong>${esc(p.full_name)}</strong><small>${esc(AAHR.realEmail(p.email) || p.staff_no || '')}</small></div></div></td>
+            <td>${esc(p.staff_no || '-')}</td>
+            <td>${esc(p.department || '-')}</td>
+            <td>${esc(p.position || '-')}</td>
+            <td><span class="badge badge-${p.role}">${ROLE_LABEL[p.role]}</span></td>
+            <td>${p.active ? '<span class="badge badge-approved">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
+            <td><div class="actions">
+              <button class="btn btn-light btn-sm" data-edit="${p.id}">Edit</button>
+              <a class="btn btn-light btn-sm" href="all-leaves.html?staff=${p.id}">Leave</a>
+            </div></td></tr>`).join('')
+          : '<tr><td colspan="7" class="empty">No staff found.</td></tr>';
+      }
+
+      async function edit(p) {
+        const [{ data: ents }, { data: bal }] = await Promise.all([
+          sb.from('leave_entitlements').select('*').eq('user_id', p.id).eq('year', year),
+          sb.rpc('leave_balances', { p_user: p.id, p_year: year }),
+        ]);
+        const entMap = Object.fromEntries((ents || []).map((e) => [e.leave_type_id, e.days]));
+        const balMap = Object.fromEntries((bal || []).map((b) => [b.leave_type_id, b]));
+        const form = document.createElement('form');
+        form.innerHTML = `
+          <div class="grid-2">
+            <div class="field"><label>Full name</label><input type="text" name="full_name" required></div>
+            <div class="field"><label>Staff ID <span class="muted" style="font-weight:500">(used to sign in)</span></label><input type="text" name="staff_no" placeholder="e.g. AA001" autocapitalize="characters"></div>
+            <div class="field"><label>Department</label><input type="text" name="department"></div>
+            <div class="field"><label>Position</label><input type="text" name="position"></div>
+            <div class="field"><label>Phone</label><input type="tel" name="phone"></div>
+            <div class="field"><label>Join date</label><input type="date" name="join_date"></div>
+            <div class="field"><label>Role</label>
+              <select name="role"><option value="staff">Staff</option><option value="director">Director (approves leave)</option><option value="admin">HR &amp; Admin</option></select></div>
+            <div class="field"><label>Status</label>
+              <select name="active"><option value="true">Active</option><option value="false">Inactive (cannot sign in)</option></select></div>
+            <div class="field" style="grid-column:1/-1"><label>New password <span class="muted" style="font-weight:500">(leave blank to keep current password)</span></label>
+              <input type="text" name="new_password" autocomplete="off" placeholder="At least 8 characters"></div>
+          </div>
+          <label style="margin-top:6px">Leave entitlement for ${year} <span class="muted" style="font-weight:500">(leave blank to use default)</span></label>
+          <table style="margin-bottom:4px">
+            <thead><tr><th>Leave type</th><th>Default</th><th>This staff</th><th>Taken</th></tr></thead>
+            <tbody>${types.map((t) => `<tr>
+              <td><span class="type-dot" style="background:${esc(t.color)}"></span>${esc(t.name)}</td>
+              <td class="muted">${t.default_days === null ? 'No limit' : fmtDays(t.default_days)}</td>
+              <td>${t.default_days === null ? '<span class="muted">—</span>'
+                : `<input type="number" step="0.5" min="0" data-ent="${t.id}" style="width:90px;padding:6px 8px" value="${entMap[t.id] ?? ''}" placeholder="${fmtDays(t.default_days)}">`}</td>
+              <td class="muted">${fmtDays(balMap[t.id]?.used ?? 0)}</td></tr>`).join('')}</tbody>
+          </table>`;
+        for (const k of ['full_name', 'staff_no', 'department', 'position', 'phone', 'join_date', 'role']) form.elements[k].value = p[k] ?? '';
+        form.elements.active.value = String(p.active);
+        if (p.id === me.id) {
+          form.elements.role.disabled = true;
+          form.elements.active.disabled = true;
+        }
+
+        modal({
+          title: `Edit ${p.full_name}`,
+          body: form,
+          actions: [
+            { label: 'Cancel' },
+            {
+              label: 'Save changes', class: 'btn-primary',
+              onClick: async () => {
+                const f = form.elements;
+                if (!f.full_name.value.trim()) { toast('Name is required.', 'error'); return false; }
+                if (!f.staff_no.value.trim()) { toast('Staff ID is required for signing in.', 'error'); return false; }
+                const newPw = f.new_password.value;
+                if (newPw && newPw.length < 8) { toast('Password must be at least 8 characters.', 'error'); return false; }
+                const update = {
+                  full_name: f.full_name.value.trim(),
+                  staff_no: f.staff_no.value.trim() || null,
+                  department: f.department.value.trim() || null,
+                  position: f.position.value.trim() || null,
+                  phone: f.phone.value.trim() || null,
+                  join_date: f.join_date.value || null,
+                };
+                if (p.id !== me.id) { update.role = f.role.value; update.active = f.active.value === 'true'; }
+                const { error } = await sb.from('profiles').update(update).eq('id', p.id);
+                if (error) {
+                  toast(error.code === '23505' ? `Staff ID "${update.staff_no}" is already used by another staff.` : errMsg(error), 'error');
+                  return false;
+                }
+                if (newPw) {
+                  const r = await sb.rpc('admin_set_password', { p_user: p.id, p_password: newPw });
+                  if (r.error) { toast(errMsg(r.error), 'error'); return false; }
+                }
+
+                const upserts = [], removes = [];
+                form.querySelectorAll('[data-ent]').forEach((inp) => {
+                  const tid = +inp.dataset.ent;
+                  if (inp.value === '') { if (tid in entMap) removes.push(tid); }
+                  else upserts.push({ user_id: p.id, leave_type_id: tid, year, days: +inp.value });
+                });
+                if (upserts.length) {
+                  const r = await sb.from('leave_entitlements').upsert(upserts);
+                  if (r.error) { toast(errMsg(r.error), 'error'); return false; }
+                }
+                if (removes.length) {
+                  const r = await sb.from('leave_entitlements').delete().eq('user_id', p.id).eq('year', year).in('leave_type_id', removes);
+                  if (r.error) { toast(errMsg(r.error), 'error'); return false; }
+                }
+                toast(newPw ? `Saved. New password for ${update.staff_no}: ${newPw}` : 'Staff details saved.');
+                load();
+              },
+            },
+          ],
+        });
+      }
+
+      $('rows').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-edit]');
+        if (b) edit(staff.find((p) => p.id === b.dataset.edit));
+      });
+      $('search').addEventListener('input', render);
+      $('fRole').addEventListener('change', render);
+      $('addBtn').onclick = () => {
+        const form = document.createElement('form');
+        form.innerHTML = `
+          <div class="grid-2">
+            <div class="field"><label>Staff ID <span style="color:var(--danger)">*</span></label>
+              <input type="text" name="staff_no" placeholder="e.g. AA002" autocapitalize="characters" required>
+              <div class="hint">Used to sign in.</div></div>
+            <div class="field"><label>Password <span style="color:var(--danger)">*</span></label>
+              <input type="text" name="password" autocomplete="off" placeholder="At least 8 characters" required>
+              <div class="hint">Give this to the staff.</div></div>
+          </div>
+          <div class="field"><label>Full name <span style="color:var(--danger)">*</span></label><input type="text" name="full_name" required></div>
+          <div class="grid-2">
+            <div class="field"><label>Department</label><input type="text" name="department"></div>
+            <div class="field"><label>Position</label><input type="text" name="position"></div>
+          </div>
+          <div class="field" style="margin:0"><label>Role</label>
+            <select name="role"><option value="staff">Staff</option><option value="director">Director (approves leave)</option><option value="admin">HR &amp; Admin</option></select></div>`;
+        modal({
+          title: 'Add new staff',
+          body: form,
+          actions: [
+            { label: 'Cancel' },
+            {
+              label: 'Create account', class: 'btn-primary',
+              onClick: async () => {
+                const f = form.elements;
+                const staffNo = f.staff_no.value.trim().toUpperCase();
+                if (!staffNo || !f.full_name.value.trim()) { toast('Staff ID and full name are required.', 'error'); return false; }
+                if (f.password.value.length < 8) { toast('Password must be at least 8 characters.', 'error'); return false; }
+                const { error } = await sb.rpc('admin_create_staff', {
+                  p_staff_no: staffNo,
+                  p_full_name: f.full_name.value.trim(),
+                  p_password: f.password.value,
+                  p_role: f.role.value,
+                  p_department: f.department.value.trim() || null,
+                  p_position: f.position.value.trim() || null,
+                });
+                if (error) { toast(errMsg(error), 'error'); return false; }
+                toast(`Account created. Staff ID: ${staffNo} · Password: ${f.password.value}`);
+                load();
+              },
+            },
+          ],
+        });
+        form.elements.staff_no.focus();
+      };
+      load();
+    })();
+  </script>
+</body>
+</html>

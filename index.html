@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <div class="auth">
+    <section class="auth-hero">
+      <div class="brand">
+        <span class="brand-mark">AA</span>
+        <span class="brand-text"><strong>AA HR Group</strong><small>Ascend Advisory (AA) Group</small></span>
+      </div>
+
+      <div class="hero-body">
+        <span class="hero-kicker">HR &amp; Admin Portal</span>
+        <h1>Your workplace,<br><em>simplified.</em></h1>
+        <p>One place for Ascend Advisory Group staff to apply for leave, track balances and get approvals — no more paper forms.</p>
+        <ul class="hero-features">
+          <li>
+            <span class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+            <span><strong>Apply leave in minutes</strong><small>Annual, casual, sick, emergency, maternity &amp; unpaid leave.</small></span>
+          </li>
+          <li>
+            <span class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
+            <span><strong>Director approval</strong><small>Every application goes straight to the Director for review.</small></span>
+          </li>
+          <li>
+            <span class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>
+            <span><strong>Real-time leave balance</strong><small>Always know how many days you have left.</small></span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="hero-foot">© <span class="yr"></span> Ascend Advisory (AA) Group. All rights reserved.</div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-card">
+        <div class="brand mobile-brand">
+          <span class="brand-mark">AA</span>
+          <span class="brand-text"><strong>AA HR Group</strong><small>Ascend Advisory (AA) Group</small></span>
+        </div>
+
+        <h2>Welcome back</h2>
+        <p class="sub">Sign in to your account to continue.</p>
+
+        <div id="alert" class="alert alert-error" hidden></div>
+
+        <form id="loginForm" novalidate>
+          <div class="field">
+            <label for="email">Staff ID</label>
+            <div class="input-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <input type="text" id="email" placeholder="e.g. AA001" autocomplete="username" autocapitalize="characters" spellcheck="false" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="input-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
+              <button type="button" class="icon-btn toggle-pw" id="togglePw" aria-label="Show password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="auth-row">
+            <label class="check" style="margin:0"><input type="checkbox" id="remember" checked> Remember me</label>
+            <a href="#" id="forgotLink">Forgot password?</a>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Sign in</button>
+        </form>
+
+        <p class="auth-note">Don't have an account? Contact HR &amp; Admin to get access.</p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (async () => {
+      const { sb, errMsg } = AAHR;
+      document.querySelector('.yr').textContent = new Date().getFullYear();
+      const alertBox = document.getElementById('alert');
+      const showError = (msg) => { alertBox.textContent = msg; alertBox.hidden = false; };
+
+      // Invite / password-recovery email links land here → send to the set-password page
+      if (/type=(invite|recovery)/.test(location.hash)) return location.replace('reset.html' + location.hash);
+
+      // Already signed in → go to dashboard
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) location.replace('dashboard.html');
+
+      document.getElementById('togglePw').onclick = () => {
+        const pw = document.getElementById('password');
+        pw.type = pw.type === 'password' ? 'text' : 'password';
+      };
+
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        alertBox.hidden = true;
+        const login = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        if (!login || !password) return showError('Please enter your Staff ID and password.');
+
+        const btn = document.getElementById('submitBtn');
+        const reset = () => { btn.disabled = false; btn.textContent = 'Sign in'; };
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Signing in…';
+
+        // Staff ID → look up the account email. An email address also works (e.g. before a Staff ID is set).
+        let email = login;
+        if (!login.includes('@')) {
+          const { data, error } = await sb.rpc('login_email', { p_login: login });
+          if (error) { reset(); return showError(errMsg(error)); }
+          if (!data) { reset(); return showError('Incorrect Staff ID or password.'); }
+          email = data;
+        }
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) {
+          reset();
+          return showError(error.message === 'Invalid login credentials' ? 'Incorrect Staff ID or password.' : errMsg(error));
+        }
+        // "Remember me" off → sign out when the browser session ends
+        sessionStorage.setItem('aahr_active', '1');
+        try { localStorage.setItem('aahr_remember', document.getElementById('remember').checked ? '1' : '0'); } catch (_) {}
+        location.replace('dashboard.html');
+      });
+
+      document.getElementById('forgotLink').onclick = (e) => {
+        e.preventDefault();
+        AAHR.modal({
+          title: 'Forgot password',
+          body: 'Please contact <strong>HR &amp; Admin</strong> to reset your password. They will give you a new temporary password.',
+          actions: [{ label: 'OK', class: 'btn-primary' }],
+        });
+      };
+    })();
+  </script>
+</body>
+</html>

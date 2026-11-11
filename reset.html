@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set password · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <section class="auth-panel" style="min-height:100vh">
+    <div class="auth-card">
+      <div class="brand mobile-brand" style="display:flex">
+        <span class="brand-mark">AA</span>
+        <span class="brand-text"><strong>AA HR Group</strong><small>Ascend Advisory (AA) Group</small></span>
+      </div>
+      <h2>Set your password</h2>
+      <p class="sub">Choose a new password for your account.</p>
+      <div id="alert" class="alert alert-error" hidden></div>
+      <form id="resetForm">
+        <div class="field">
+          <label for="pw1">New password</label>
+          <input type="password" id="pw1" minlength="8" autocomplete="new-password" required>
+          <div class="hint">At least 8 characters.</div>
+        </div>
+        <div class="field">
+          <label for="pw2">Confirm new password</label>
+          <input type="password" id="pw2" minlength="8" autocomplete="new-password" required>
+        </div>
+        <button class="btn btn-primary btn-block" id="saveBtn">Save password</button>
+      </form>
+      <p class="auth-note"><a href="index.html">Back to sign in</a></p>
+    </div>
+  </section>
+  <script>
+    (async () => {
+      const { sb, errMsg, toast } = AAHR;
+      const alertBox = document.getElementById('alert');
+      const show = (m) => { alertBox.textContent = m; alertBox.hidden = false; };
+
+      // The link in the email signs the user in via the URL; give supabase-js a moment to pick it up.
+      await new Promise((r) => setTimeout(r, 400));
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) show('This link is invalid or has expired. Please request a new one from the sign-in page.');
+
+      document.getElementById('resetForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        alertBox.hidden = true;
+        const p1 = document.getElementById('pw1').value, p2 = document.getElementById('pw2').value;
+        if (p1.length < 8) return show('Password must be at least 8 characters.');
+        if (p1 !== p2) return show('Passwords do not match.');
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true;
+        const { error } = await sb.auth.updateUser({ password: p1 });
+        btn.disabled = false;
+        if (error) return show(errMsg(error));
+        sessionStorage.setItem('aahr_active', '1');
+        toast('Password updated.');
+        setTimeout(() => location.replace('dashboard.html'), 900);
+      });
+    })();
+  </script>
+</body>
+</html>

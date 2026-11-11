@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apply Leave · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Leave Application Form</h1>
+        <p>Your application will be sent to the Director for approval.</p>
+      </div>
+    </div>
+
+    <div class="apply-layout">
+      <form class="card card-pad" id="leaveForm" novalidate>
+        <div id="formError" class="alert alert-error" hidden></div>
+
+        <div class="field">
+          <label>Applicant</label>
+          <div class="summary-box" style="background:#fff;border-style:solid">
+            <div class="person">
+              <span class="avatar light" id="meAvatar"></span>
+              <div><strong id="meName"></strong><small id="meInfo"></small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Type of leave <span style="color:var(--danger)">*</span></label>
+          <div class="type-options" id="typeOptions"></div>
+          <div class="hint" id="typeHint"></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="startDate">Start date <span style="color:var(--danger)">*</span></label>
+            <input type="date" id="startDate" required>
+          </div>
+          <div class="field">
+            <label for="endDate">End date <span style="color:var(--danger)">*</span></label>
+            <input type="date" id="endDate" required>
+          </div>
+        </div>
+
+        <div class="field" id="halfDayField" hidden>
+          <label for="halfDay">Duration</label>
+          <select id="halfDay">
+            <option value="">Full day</option>
+            <option value="AM">Half day — Morning (AM)</option>
+            <option value="PM">Half day — Afternoon (PM)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="reason">Reason for leave <span style="color:var(--danger)">*</span></label>
+          <textarea id="reason" maxlength="1000" placeholder="Briefly state the reason for your leave" required></textarea>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="contact">Contact during leave</label>
+            <input type="tel" id="contact" placeholder="e.g. 012-345 6789">
+          </div>
+          <div class="field">
+            <label for="handover">Work handed over to</label>
+            <input type="text" id="handover" list="staffList" placeholder="Colleague's name">
+            <datalist id="staffList"></datalist>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="attachment">Supporting document <span id="attachReq" style="color:var(--danger)" hidden>*</span></label>
+          <input type="file" id="attachment" accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx">
+          <div class="hint">PDF, image or Word document, max 5 MB. Required for Sick Leave (MC) and Maternity Leave.</div>
+        </div>
+
+        <label class="check field"><input type="checkbox" id="declare"> I confirm the information given above is true and correct.</label>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+          <a href="dashboard.html" class="btn btn-light">Cancel</a>
+          <button type="submit" class="btn btn-primary" id="submitBtn">Submit application</button>
+        </div>
+      </form>
+
+      <aside>
+        <div class="card card-pad section">
+          <div class="stat-label">Days applied</div>
+          <div class="summary-box" style="margin-top:8px">
+            <div><strong id="dayCount">0</strong> <span class="muted">day(s)</span></div>
+            <span class="muted" id="dayMode" style="font-size:12.5px"></span>
+          </div>
+          <div id="balanceInfo" class="hint" style="margin-top:12px"></div>
+        </div>
+        <div class="card card-pad">
+          <div class="stat-label" style="margin-bottom:8px">Notes</div>
+          <ul class="muted" style="margin:0;padding-left:18px;font-size:13px;display:grid;gap:6px">
+            <li>Weekends and public holidays are not counted (except Maternity Leave, which counts consecutive days).</li>
+            <li>Emergency and Sick Leave may be applied after the date.</li>
+            <li>Other leave types must be applied in advance.</li>
+            <li>You can cancel an application while it is still pending.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const { sb, esc, fmtDays, toast, errMsg, initials, today } = AAHR;
+      const me = await AAHR.init({ active: 'apply' });
+      const $ = (id) => document.getElementById(id);
+      const year = new Date().getFullYear();
+
+      $('meAvatar').textContent = initials(me.full_name);
+      $('meName').textContent = me.full_name;
+      $('meInfo').textContent = [me.staff_no, me.position, me.department].filter(Boolean).join(' · ') || AAHR.realEmail(me.email);
+
+      const [{ data: types }, { data: balances }, { data: staff }] = await Promise.all([
+        sb.from('leave_types').select('*').eq('active', true).order('sort_order'),
+        sb.rpc('leave_balances', { p_user: me.id, p_year: year }),
+        sb.from('profiles').select('full_name').eq('active', true).neq('id', me.id).order('full_name'),
+      ]);
+      const balMap = Object.fromEntries((balances || []).map((b) => [b.leave_type_id, b]));
+      $('staffList').innerHTML = (staff || []).map((s) => `<option value="${esc(s.full_name)}">`).join('');
+
+      $('typeOptions').innerHTML = (types || []).map((t) => {
+        const b = balMap[t.id];
+        const left = !b || b.entitled === null ? 'No limit' : `${fmtDays(b.balance)} days left`;
+        return `<label class="type-option" style="--c:${esc(t.color)}">
+          <input type="radio" name="type" value="${t.id}"><span>${esc(t.name)}<small>${left}</small></span></label>`;
+      }).join('');
+
+      const selectedType = () => {
+        const r = document.querySelector('input[name=type]:checked');
+        return r ? types.find((t) => t.id === +r.value) : null;
+      };
+
+      $('startDate').value = today();
+      $('endDate').value = today();
+
+      let countSeq = 0;
+      async function refresh() {
+        const t = selectedType();
+        const s = $('startDate').value, e = $('endDate').value;
+        if (s && (!e || e < s)) $('endDate').value = s;
+        const end = $('endDate').value;
+
+        $('typeHint').textContent = t?.description || '';
+        $('attachReq').hidden = !t?.requires_attachment;
+        const single = s && s === end;
+        $('halfDayField').hidden = !(t && t.allow_half_day && !t.calendar_days && single);
+        if ($('halfDayField').hidden) $('halfDay').value = '';
+        $('startDate').min = t && !t.allow_backdate ? today() : '';
+        $('dayMode').textContent = t ? (t.calendar_days ? 'Calendar days' : 'Working days') : '';
+
+        if (!t || !s || !end) { $('dayCount').textContent = '0'; $('balanceInfo').textContent = 'Select a leave type and dates.'; return; }
+        const seq = ++countSeq;
+        const { data, error } = await sb.rpc('count_leave_days', { p_start: s, p_end: end, p_calendar: t.calendar_days });
+        if (seq !== countSeq) return;
+        if (error) return toast(errMsg(error), 'error');
+        const days = +data * ($('halfDay').value ? 0.5 : 1);
+        $('dayCount').textContent = fmtDays(days);
+        const b = balMap[t.id];
+        if (!b || b.entitled === null) {
+          $('balanceInfo').innerHTML = `${esc(t.name)} has no day limit.`;
+        } else {
+          const after = +b.balance - days;
+          $('balanceInfo').innerHTML = `Available: <strong>${fmtDays(b.balance)}</strong> day(s)` +
+            (+b.pending ? ` <span class="muted">(${fmtDays(b.pending)} pending)</span>` : '') +
+            `<br>After this application: <strong style="color:${after < 0 ? 'var(--danger)' : 'inherit'}">${fmtDays(after)}</strong> day(s)`;
+        }
+      }
+      ['startDate', 'endDate', 'halfDay'].forEach((id) => $(id).addEventListener('change', refresh));
+      $('typeOptions').addEventListener('change', refresh);
+      refresh();
+
+      $('leaveForm').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const errBox = $('formError');
+        const fail = (m) => { errBox.textContent = m; errBox.hidden = false; errBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+        errBox.hidden = true;
+
+        const t = selectedType();
+        const file = $('attachment').files[0];
+        if (!t) return fail('Please choose the type of leave.');
+        if (!$('startDate').value || !$('endDate').value) return fail('Please select the leave dates.');
+        if (!$('reason').value.trim()) return fail('Please state the reason for leave.');
+        if (t.requires_attachment && !file) return fail(`${t.name} requires a supporting document (e.g. MC).`);
+        if (file && file.size > 5 * 1024 * 1024) return fail('Attachment must be 5 MB or smaller.');
+        if (!$('declare').checked) return fail('Please tick the declaration box.');
+
+        const btn = $('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Submitting…';
+        let attachment_path = null;
+        try {
+          if (file) {
+            const safe = file.name.replace(/[^\w.\-]+/g, '_').slice(-80);
+            attachment_path = `${me.id}/${Date.now()}_${safe}`;
+            const up = await sb.storage.from('attachments').upload(attachment_path, file);
+            if (up.error) throw up.error;
+          }
+          const { data, error } = await sb.from('leave_applications').insert({
+            leave_type_id: t.id,
+            start_date: $('startDate').value,
+            end_date: $('endDate').value,
+            half_day: $('halfDay').value || null,
+            reason: $('reason').value.trim(),
+            contact_during_leave: $('contact').value.trim() || null,
+            handover_to: $('handover').value.trim() || null,
+            attachment_path,
+          }).select('id').single();
+          if (error) throw error;
+          toast('Leave application submitted to the Director.');
+          setTimeout(() => location.href = `view.html?id=${data.id}`, 700);
+        } catch (err) {
+          if (attachment_path) sb.storage.from('attachments').remove([attachment_path]);
+          btn.disabled = false;
+          btn.textContent = 'Submit application';
+          fail(errMsg(err));
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

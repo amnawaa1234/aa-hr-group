@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Approvals · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Pending Approvals</h1>
+        <p>Leave applications waiting for your decision.</p>
+      </div>
+      <a href="all-leaves.html" class="btn btn-light">View all applications</a>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Staff</th><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Applied</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const { sb, esc, fmtDays, fmtDateTime, dateRange, initials, toast, errMsg } = AAHR;
+      const me = await AAHR.init({ active: 'approvals', roles: ['director'] });
+      let rows = [];
+
+      async function load() {
+        const { data, error } = await sb.from('leave_applications')
+          .select('*, leave_types(name, color), profiles!leave_applications_user_id_fkey(full_name, position, department)')
+          .eq('status', 'pending').order('created_at');
+        if (error) return toast(errMsg(error), 'error');
+        rows = data;
+        const badge = document.querySelector('[data-nav="approvals"] .nav-count');
+        if (badge) { badge.textContent = rows.length; badge.hidden = !rows.length; }
+        document.getElementById('rows').innerHTML = rows.length ? rows.map((a, i) => `<tr>
+            <td><div class="person"><span class="avatar light">${esc(initials(a.profiles.full_name))}</span>
+              <div><strong>${esc(a.profiles.full_name)}</strong><small>${esc([a.profiles.position, a.profiles.department].filter(Boolean).join(' · '))}</small></div></div></td>
+            <td class="nowrap"><span class="type-dot" style="background:${esc(a.leave_types.color)}"></span>${esc(a.leave_types.name)}</td>
+            <td class="nowrap">${dateRange(a)}</td>
+            <td>${fmtDays(a.days)}</td>
+            <td style="max-width:260px">${esc(a.reason)}${a.attachment_path ? ' <span class="muted">📎</span>' : ''}</td>
+            <td class="nowrap muted">${fmtDateTime(a.created_at)}</td>
+            <td><div class="actions">
+              ${a.user_id === me.id ? '<span class="muted">Your own</span>' : `
+              <button class="btn btn-success btn-sm" data-act="approved" data-i="${i}">Approve</button>
+              <button class="btn btn-danger btn-sm" data-act="rejected" data-i="${i}">Reject</button>`}
+              <a href="view.html?id=${a.id}" class="btn btn-light btn-sm">View</a>
+            </div></td></tr>`).join('')
+          : '<tr><td colspan="7" class="empty">🎉 All caught up — no pending applications.</td></tr>';
+      }
+
+      document.getElementById('rows').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]');
+        if (b) AAHR.decide(rows[+b.dataset.i], b.dataset.act, load);
+      });
+      load();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="greeting">Hello</h1>
+        <p id="subGreeting"></p>
+      </div>
+      <a href="apply.html" class="btn btn-primary">+ Apply Leave</a>
+    </div>
+
+    <div id="directorPanel" class="section" hidden>
+      <div class="stats">
+        <a href="approvals.html" class="stat" style="--c:#b45309;text-decoration:none;color:inherit">
+          <div class="stat-label">Waiting for your approval</div>
+          <div class="stat-value" id="pendingCount">0</div>
+          <div class="stat-sub">Click to review</div>
+        </a>
+        <div class="stat" style="--c:#2563eb">
+          <div class="stat-label">On leave today</div>
+          <div class="stat-value" id="onLeaveCount">0</div>
+          <div class="stat-sub" id="onLeaveNames">—</div>
+        </div>
+        <div class="stat" style="--c:#16a34a">
+          <div class="stat-label">Approved this month</div>
+          <div class="stat-value" id="approvedMonth">0</div>
+          <div class="stat-sub">applications</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card-head" style="padding:0 0 12px;border:0">
+        <h2>My leave balance <span class="muted" id="yearLabel" style="font-weight:500"></span></h2>
+      </div>
+      <div class="stats" id="balances"><div class="muted">Loading…</div></div>
+    </div>
+
+    <div class="card section">
+      <div class="card-head">
+        <h2>My recent applications</h2>
+        <a href="my-leaves.html" class="btn btn-light btn-sm">View all</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ref</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th></tr></thead>
+          <tbody id="recent"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const { sb, esc, fmtDays, fmtDate, statusBadge, refNo, dateRange, today, toast, errMsg } = AAHR;
+      const me = await AAHR.init({ active: 'dashboard' });
+      const year = new Date().getFullYear();
+
+      const hour = new Date().getHours();
+      const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      document.getElementById('greeting').textContent = `${hello}, ${me.full_name.split(' ')[0]}`;
+      document.getElementById('subGreeting').textContent =
+        new Date().toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) +
+        (me.position ? ` · ${me.position}` : '');
+      document.getElementById('yearLabel').textContent = `· ${year}`;
+
+      // Balances
+      const { data: bal, error } = await sb.rpc('leave_balances', { p_user: me.id, p_year: year });
+      if (error) toast(errMsg(error), 'error');
+      document.getElementById('balances').innerHTML = (bal || []).map((b) => {
+        const unlimited = b.entitled === null;
+        const pct = unlimited ? 0 : Math.min(100, ((+b.used + +b.pending) / Math.max(+b.entitled, 1)) * 100);
+        return `<div class="stat" style="--c:${esc(b.color)}">
+          <div class="stat-label">${esc(b.name)}</div>
+          <div class="stat-value">${unlimited ? '—' : fmtDays(b.balance)} ${unlimited ? '<small>no limit</small>' : `<small>/ ${fmtDays(b.entitled)} days</small>`}</div>
+          <div class="stat-sub">Used ${fmtDays(b.used)}${+b.pending ? ` · Pending ${fmtDays(b.pending)}` : ''}</div>
+          ${unlimited ? '' : `<div class="bar"><span style="width:${pct}%"></span></div>`}
+        </div>`;
+      }).join('');
+
+      // Recent applications
+      const { data: recent } = await sb.from('leave_applications')
+        .select('*, leave_types(name, color)').eq('user_id', me.id)
+        .order('created_at', { ascending: false }).limit(5);
+      document.getElementById('recent').innerHTML = recent && recent.length
+        ? recent.map((a) => `<tr>
+            <td class="nowrap"><strong>${refNo(a)}</strong></td>
+            <td><span class="type-dot" style="background:${esc(a.leave_types.color)}"></span>${esc(a.leave_types.name)}</td>
+            <td class="nowrap">${dateRange(a)}</td>
+            <td>${fmtDays(a.days)}</td>
+            <td>${statusBadge(a.status)}</td>
+            <td><a href="view.html?id=${a.id}" class="btn btn-light btn-sm">View</a></td></tr>`).join('')
+        : '<tr><td colspan="6" class="empty">No applications yet. <a href="apply.html">Apply for leave</a></td></tr>';
+
+      // Director / HR overview
+      if (me.role === 'director' || me.role === 'admin') {
+        const panel = document.getElementById('directorPanel');
+        panel.hidden = false;
+        if (me.role === 'admin') {
+          panel.querySelector('a.stat').removeAttribute('href');
+          panel.querySelector('a.stat .stat-label').textContent = 'Pending Director approval';
+          panel.querySelector('a.stat .stat-sub').textContent = 'across all staff';
+        }
+        const t = today();
+        const monthStart = t.slice(0, 8) + '01';
+        const [pend, onLeave, appr] = await Promise.all([
+          sb.from('leave_applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+          sb.from('leave_applications').select('profiles!leave_applications_user_id_fkey(full_name)')
+            .eq('status', 'approved').lte('start_date', t).gte('end_date', t),
+          sb.from('leave_applications').select('id', { count: 'exact', head: true })
+            .eq('status', 'approved').gte('decided_at', monthStart),
+        ]);
+        document.getElementById('pendingCount').textContent = pend.count || 0;
+        const names = (onLeave.data || []).map((r) => r.profiles?.full_name).filter(Boolean);
+        document.getElementById('onLeaveCount').textContent = names.length;
+        document.getElementById('onLeaveNames').textContent = names.length ? names.join(', ') : 'Everyone is in';
+        document.getElementById('approvedMonth').textContent = appr.count || 0;
+      }
+    })();
+  </script>
+</body>
+</html>
