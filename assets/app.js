@@ -30,6 +30,7 @@
     { id: 'dashboard', href: 'dashboard.html', label: 'Dashboard', icon: 'M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10' },
     { id: 'apply', href: 'apply.html', label: 'Apply Leave', icon: 'M12 5v14M5 12h14' },
     { id: 'my-leaves', href: 'my-leaves.html', label: 'My Applications', icon: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' },
+    { id: 'calendar', href: 'calendar.html', label: 'Leave Calendar', icon: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
     { id: 'approvals', href: 'approvals.html', label: 'Approvals', icon: 'M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z', roles: ['director'] },
     { id: 'all-leaves', href: 'all-leaves.html', label: 'All Applications', icon: 'M4 4h16v16H4zM4 9h16M9 4v16', roles: ['director', 'admin'] },
     { id: 'staff', href: 'staff.html', label: 'Staff', icon: 'M17 20h5v-2a4 4 0 00-5-3.87M9 20H2v-2a4 4 0 015-3.87m6-4a4 4 0 11-8 0 4 4 0 018 0zm6 2a3 3 0 11-6 0 3 3 0 016 0z', roles: ['admin'] },
@@ -192,6 +193,42 @@
     shell.querySelector('#scrim').onclick = toggle;
   }
 
+  // ---------- team leave (who is on leave) ----------
+  const addDays = (ymd, n) => {
+    const d = new Date(ymd + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const weekday = (ymd) => new Date(ymd + 'T00:00:00Z').getUTCDay(); // 0 = Sun
+
+  /** Approved leave of all staff between two dates, plus public holidays in that range. */
+  async function teamLeave(from, to) {
+    const [leave, hols] = await Promise.all([
+      sb.rpc('team_leave', { p_from: from, p_to: to }),
+      sb.from('public_holidays').select('*').gte('holiday_date', from).lte('holiday_date', to),
+    ]);
+    if (leave.error) toast(errMsg(leave.error), 'error');
+    const holidays = Object.fromEntries((hols.data || []).map((h) => [h.holiday_date, h.name]));
+    return { rows: leave.data || [], holidays };
+  }
+
+  /** Who is actually away on a given day (skips weekends/holidays unless the leave counts calendar days). */
+  function onLeaveOn(rows, ymd, holidays = {}) {
+    const offDay = weekday(ymd) === 0 || weekday(ymd) === 6 || !!holidays[ymd];
+    return rows.filter((r) => r.start_date <= ymd && r.end_date >= ymd && (r.calendar_days || !offDay));
+  }
+
+  /** Small list of people on leave, used on the dashboard and calendar. */
+  function leavePeopleHtml(list) {
+    return list.map((r) => `<div class="leave-person">
+        <span class="avatar light">${esc(initials(r.full_name))}</span>
+        <div class="leave-person-text"><strong>${esc(r.full_name)}</strong>
+          <small>${esc([r.staff_position, r.department].filter(Boolean).join(' · '))}</small></div>
+        <div class="leave-person-meta"><span class="type-pill" style="--c:${esc(r.color)}">${esc(r.leave_type)}${r.half_day ? ` · ${r.half_day}` : ''}</span>
+          <small>${r.start_date === r.end_date ? fmtDate(r.start_date) : `${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}`}</small></div>
+      </div>`).join('');
+  }
+
   async function attachmentUrl(path) {
     const { data, error } = await sb.storage.from('attachments').createSignedUrl(path, 600);
     if (error) { toast(errMsg(error), 'error'); return null; }
@@ -265,7 +302,7 @@
   }
 
   window.AAHR = {
-    sb, init, decide, THEMES, applyTheme, cancelLeave, downloadCsv, signOut, getProfile, toast, modal, errMsg, icon, attachmentUrl,
+    sb, init, decide, THEMES, applyTheme, teamLeave, onLeaveOn, leavePeopleHtml, addDays, weekday, cancelLeave, downloadCsv, signOut, getProfile, toast, modal, errMsg, icon, attachmentUrl,
     esc, realEmail, fmtDate, fmtDateTime, fmtDays, statusBadge, refNo, initials, today, dateRange, ROLE_LABEL,
   };
 })();
