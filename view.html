@@ -49,17 +49,16 @@
         const statusText = { pending: 'PENDING', approved: 'APPROVED', rejected: 'REJECTED', cancelled: 'CANCELLED' }[a.status];
 
         document.getElementById('sheet').innerHTML = `
-          <div class="sheet-head">
-            <span class="brand-mark">AA</span>
-            <div style="flex:1">
-              <h1>Ascend Advisory Group</h1>
-              <p>HR &amp; Admin Department · Leave Application Form</p>
-            </div>
-            <span class="stamp ${a.status}">${statusText}</span>
-          </div>
+          <header class="sheet-head">
+            <h1 class="sheet-title">Leave Application Form</h1>
+            <div class="sheet-rule"></div>
+            <div class="sheet-org">Ascend Advisory Group</div>
+            <div class="sheet-dept">Human Resources &amp; Administration Department</div>
+          </header>
           <div class="sheet-meta">
-            <span>Ref No: <strong>${refNo(a)}</strong></span>
-            <span>Submitted: <strong>${fmtDateTime(a.created_at)}</strong></span>
+            <div><small>Reference No.</small><strong>${refNo(a)}</strong></div>
+            <div><small>Date submitted</small><strong>${fmtDateTime(a.created_at)}</strong></div>
+            <div><small>Status</small><strong>${a.status === 'pending' ? 'Pending approval' : statusText.charAt(0) + statusText.slice(1).toLowerCase()}</strong></div>
           </div>
 
           <div class="sheet-section">
