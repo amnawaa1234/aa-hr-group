@@ -66,10 +66,8 @@
             <h3>A. Applicant details</h3>
             <div class="sheet-grid">
               <div><small>Name</small>${esc(p.full_name)}</div>
-              <div><small>Staff No.</small>${esc(p.staff_no || '-')}</div>
               <div><small>Position</small>${esc(p.position || '-')}</div>
               <div><small>Department</small>${esc(p.department || '-')}</div>
-              <div><small>Email</small>${esc(AAHR.realEmail(p.email) || '-')}</div>
               <div><small>Contact during leave</small>${esc(a.contact_during_leave || p.phone || '-')}</div>
             </div>
           </div>
@@ -98,7 +96,7 @@
 
           <div class="sheet-section">
             <h3>D. Director's approval</h3>
-            <div class="sheet-grid" style="margin-bottom:28px">
+            <div class="sheet-grid">
               <div><small>Decision</small><strong>${a.status === 'pending' ? 'Awaiting decision' : statusText}</strong></div>
               <div><small>Date</small>${a.decided_at ? fmtDateTime(a.decided_at) : '-'}</div>
               <div class="full"><small>Remarks</small>${esc(a.director_remarks || '-')}</div>
@@ -108,7 +106,7 @@
               <div class="sign-box"><strong>${esc(approver?.full_name || '')}&nbsp;</strong>Director${a.decided_at ? ' · ' + fmtDate(a.decided_at) : ''}</div>
             </div>
           </div>
-          <p class="muted" style="font-size:11.5px;text-align:center;margin:28px 0 0">This form was generated electronically by AA HR Group and does not require a signature.</p>`;
+          <p class="sheet-foot">This form was generated electronically by AA HR Group and does not require a signature.</p>`;
 
         const link = document.getElementById('attachLink');
         if (link) link.onclick = async (e) => {
