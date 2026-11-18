@@ -28,7 +28,7 @@ create table if not exists public.leave_types (
   code                text unique not null,
   name                text not null,
   default_days        numeric(5,1),            -- NULL = unlimited (e.g. unpaid leave)
-  calendar_days       boolean not null default false, -- true = count weekends/holidays too (maternity)
+  calendar_days       boolean not null default false, -- true = count weekends/holidays too
   requires_attachment boolean not null default false,
   allow_half_day      boolean not null default true,
   allow_backdate      boolean not null default false,
@@ -86,9 +86,14 @@ values
   ('CL',  'Casual Leave',    3,    false, false, true,  false, 'Short leave for personal matters.',                                 '#0891b2', 2),
   ('EL',  'Emergency Leave', 3,    false, false, true,  true,  'For unforeseen emergencies. May be applied after the fact.',        '#dc2626', 3),
   ('SL',  'Sick Leave',      14,   false, true,  true,  true,  'Medical certificate (MC) is required.',                             '#16a34a', 4),
-  ('ML',  'Maternity Leave', 98,   true,  true,  false, false, '98 consecutive days. Attach supporting medical document.',          '#db2777', 5),
   ('UL',  'Unpaid Leave',    null, false, false, true,  false, 'Leave without pay. Subject to Director approval.',                  '#7c3aed', 6)
 on conflict (code) do nothing;
+
+-- Maternity Leave is not offered: remove it (or just hide it if it was ever used, to keep history)
+delete from public.leave_types t
+ where t.code = 'ML'
+   and not exists (select 1 from public.leave_applications a where a.leave_type_id = t.id);
+update public.leave_types set active = false where code = 'ML';
 
 -- ---------------------------------------------------------------------
 -- Helper functions
@@ -453,6 +458,29 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
+-- Team leave calendar: every signed-in staff can see who is on (approved) leave.
+-- Only name, department, position, leave type and dates are shared —
+-- never the reason, remarks or attachment.
+-- ---------------------------------------------------------------------
+create or replace function public.team_leave(p_from date, p_to date)
+returns table (application_id bigint, user_id uuid, full_name text, department text, staff_position text,
+               leave_type text, color text, calendar_days boolean,
+               start_date date, end_date date, half_day text, days numeric)
+language sql stable security definer set search_path = public as $$
+  select a.id, a.user_id, p.full_name, p.department, p.position,
+         t.name, t.color, t.calendar_days,
+         a.start_date, a.end_date, a.half_day, a.days
+  from public.leave_applications a
+  join public.profiles p on p.id = a.user_id
+  join public.leave_types t on t.id = a.leave_type_id
+  where a.status = 'approved'
+    and a.start_date <= p_to and a.end_date >= p_from
+    and p_to - p_from <= 62
+    and public.my_role() is not null
+  order by p.full_name, a.start_date
+$$;
+
+-- ---------------------------------------------------------------------
 -- App settings (e.g. colour theme). Readable before sign-in so the login page
 -- shows the chosen theme; only HR & Admin can change them.
 -- ---------------------------------------------------------------------
@@ -480,6 +508,8 @@ grant execute on function public.cancel_leave(bigint)                  to authen
 grant execute on function public.login_email(text)                     to anon, authenticated;
 grant execute on function public.admin_set_password(uuid, text)        to authenticated;
 revoke execute on function public.admin_set_password(uuid, text) from public, anon;
+revoke execute on function public.team_leave(date, date) from public, anon;
+grant  execute on function public.team_leave(date, date) to authenticated;
 revoke execute on function public.admin_create_staff(text, text, text, text, text, text) from public, anon;
 grant  execute on function public.admin_create_staff(text, text, text, text, text, text) to authenticated;
 revoke execute on function public.decide_leave(bigint, text, text) from anon;
