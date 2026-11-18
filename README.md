@@ -13,7 +13,6 @@ Sistem HR & Admin untuk **Ascend Advisory Group**. Fasa 1: Borang Permohonan Cut
 | Casual Leave | 3 | Hari bekerja | – | Tidak |
 | Emergency Leave | 3 | Hari bekerja | – | Ya |
 | Sick Leave | 14 | Hari bekerja | MC wajib | Ya |
-| Maternity Leave | 98 | Hari kalendar | Wajib | Tidak |
 | Unpaid Leave | Tiada had | Hari bekerja | – | Tidak |
 
 Hari bekerja = Isnin–Jumaat, tolak cuti umum (tambah di Settings).
@@ -70,6 +69,9 @@ Login di laman web dengan **Staff ID `AA001`** dan **PIN** tu.
 Menu **Staff → + Add staff** → isi Staff ID, PIN 4 digit, nama, jabatan, jawatan dan role (pilih **Director** untuk Director) → **Create account**. Beri Staff ID + PIN kepada staff.
 
 Staff lupa PIN → **Staff → Edit → New PIN**.
+
+## Leave Calendar
+Semua staff boleh lihat siapa bercuti hari ini dan 7 hari akan datang di **Dashboard**, dan untuk mana-mana hari di menu **Leave Calendar**. Hanya cuti yang sudah diluluskan dipaparkan. Yang dikongsi cuma nama, jabatan, jawatan, jenis cuti dan tarikh. Sebab cuti dan lampiran MC tidak dikongsi.
 
 ## Tema warna
 HR & Admin boleh tukar tema di **Settings → Colour theme**: Emerald & Gold (default), Navy & Gold, Burgundy & Gold, Royal Plum, Charcoal & Amber. Tema terpakai untuk semua staff, termasuk halaman login.

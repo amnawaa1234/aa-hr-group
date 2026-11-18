@@ -41,6 +41,23 @@
       </div>
     </div>
 
+    <div class="card section">
+      <div class="card-head">
+        <h2>Who's on leave</h2>
+        <a href="calendar.html" class="btn btn-light btn-sm">Open leave calendar</a>
+      </div>
+      <div class="who-grid">
+        <div>
+          <div class="who-title"><span>Today</span><span id="whoTodayDate"></span></div>
+          <div id="whoToday"><div class="who-empty">Loading…</div></div>
+        </div>
+        <div>
+          <div class="who-title"><span>Coming up · next 7 days</span></div>
+          <div id="whoNext"><div class="who-empty">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
     <div class="section">
       <div class="card-head" style="padding:0 0 12px;border:0">
         <h2>My leave balance <span class="muted" id="yearLabel" style="font-weight:500"></span></h2>
@@ -104,6 +121,20 @@
             <td><a href="view.html?id=${a.id}" class="btn btn-light btn-sm">View</a></td></tr>`).join('')
         : '<tr><td colspan="6" class="empty">No applications yet. <a href="apply.html">Apply for leave</a></td></tr>';
 
+      // Who's on leave — visible to everyone
+      const t0 = today();
+      const team = await AAHR.teamLeave(t0, AAHR.addDays(t0, 7));
+      const wd = AAHR.weekday(t0);
+      document.getElementById('whoTodayDate').textContent = fmtDate(t0);
+      const todayList = AAHR.onLeaveOn(team.rows, t0, team.holidays);
+      document.getElementById('whoToday').innerHTML = todayList.length
+        ? AAHR.leavePeopleHtml(todayList)
+        : `<div class="who-empty">${team.holidays[t0] ? `Public holiday · ${esc(team.holidays[t0])}` : wd === 0 || wd === 6 ? 'Weekend 🌤' : 'Everyone is in today ✓'}</div>`;
+      const nextList = team.rows.filter((r) => r.end_date > t0 && !todayList.includes(r));
+      document.getElementById('whoNext').innerHTML = nextList.length
+        ? AAHR.leavePeopleHtml(nextList)
+        : '<div class="who-empty">No upcoming leave.</div>';
+
       // Director / HR overview
       if (me.role === 'director' || me.role === 'admin') {
         const panel = document.getElementById('directorPanel');
@@ -117,13 +148,12 @@
         const monthStart = t.slice(0, 8) + '01';
         const [pend, onLeave, appr] = await Promise.all([
           sb.from('leave_applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-          sb.from('leave_applications').select('profiles!leave_applications_user_id_fkey(full_name)')
-            .eq('status', 'approved').lte('start_date', t).gte('end_date', t),
+          Promise.resolve(todayList),
           sb.from('leave_applications').select('id', { count: 'exact', head: true })
             .eq('status', 'approved').gte('decided_at', monthStart),
         ]);
         document.getElementById('pendingCount').textContent = pend.count || 0;
-        const names = (onLeave.data || []).map((r) => r.profiles?.full_name).filter(Boolean);
+        const names = onLeave.map((r) => r.full_name);
         document.getElementById('onLeaveCount').textContent = names.length;
         document.getElementById('onLeaveNames').textContent = names.length ? names.join(', ') : 'Everyone is in';
         document.getElementById('approvedMonth').textContent = appr.count || 0;

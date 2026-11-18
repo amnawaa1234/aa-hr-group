@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leave Calendar · AA HR Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Leave Calendar</h1>
+        <p>See who is on leave on any day. Only approved leave is shown.</p>
+      </div>
+    </div>
+
+    <div class="cal-layout">
+      <div class="card">
+        <div class="card-head">
+          <div class="cal-toolbar">
+            <button class="btn btn-light btn-sm" id="prevBtn" aria-label="Previous month">‹</button>
+            <h2 id="monthLabel"></h2>
+            <button class="btn btn-light btn-sm" id="nextBtn" aria-label="Next month">›</button>
+          </div>
+          <button class="btn btn-light btn-sm" id="todayBtn">Today</button>
+        </div>
+        <div class="cal-grid" id="grid"></div>
+        <div class="cal-legend" id="legend"></div>
+      </div>
+
+      <aside class="card cal-side">
+        <div class="card-head"><h2 id="dayLabel">—</h2><span class="muted" id="dayCount"></span></div>
+        <div id="dayList"><div class="who-empty">Loading…</div></div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const { sb, esc, fmtDate, today, addDays, weekday, onLeaveOn, leavePeopleHtml } = AAHR;
+      await AAHR.init({ active: 'calendar' });
+      const $ = (id) => document.getElementById(id);
+      const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const MAX_CHIPS = 3;
+
+      let year, month, selected = today();
+      let data = { rows: [], holidays: {} };
+
+      // Leave type legend
+      const { data: types } = await sb.from('leave_types').select('name, color').eq('active', true).order('sort_order');
+      $('legend').innerHTML = (types || []).map((t) =>
+        `<span><span class="type-dot" style="background:${esc(t.color)}"></span>${esc(t.name)}</span>`).join('') +
+        '<span style="margin-left:auto">Striped = weekend / public holiday</span>';
+
+      const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+      async function load() {
+        $('monthLabel').textContent = `${MONTHS[month]} ${year}`;
+        // Grid runs Monday → Sunday, 6 weeks
+        const first = ymd(year, month, 1);
+        const lead = (weekday(first) + 6) % 7;
+        const gridStart = addDays(first, -lead);
+        const gridEnd = addDays(gridStart, 41);
+        data = await AAHR.teamLeave(gridStart, gridEnd);
+
+        const cells = DOW.map((d) => `<div class="cal-dow">${d}</div>`);
+        for (let i = 0; i < 42; i++) {
+          const day = addDays(gridStart, i);
+          const wd = weekday(day);
+          const hol = data.holidays[day];
+          const people = onLeaveOn(data.rows, day, data.holidays);
+          const cls = ['cal-day',
+            day.slice(5, 7) !== first.slice(5, 7) ? 'other' : '',
+            wd === 0 || wd === 6 || hol ? 'off' : '',
+            day === today() ? 'today' : '',
+            day === selected ? 'selected' : ''].join(' ');
+          cells.push(`<button type="button" class="${cls}" data-day="${day}" aria-label="${fmtDate(day)}: ${people.length} on leave">
+            <span class="cal-num"><b>${+day.slice(8)}</b>${people.length ? `<small class="muted">${people.length}</small>` : ''}</span>
+            ${hol ? `<span class="cal-hol" title="${esc(hol)}">${esc(hol)}</span>` : ''}
+            ${people.slice(0, MAX_CHIPS).map((r) => `<span class="cal-chip" style="--c:${esc(r.color)}" title="${esc(r.full_name)} · ${esc(r.leave_type)}">${esc(r.full_name.split(' ')[0])}${r.half_day ? ` (${r.half_day})` : ''}</span>`).join('')}
+            ${people.length > MAX_CHIPS ? `<span class="cal-more">+${people.length - MAX_CHIPS} more</span>` : ''}
+            <span class="cal-dots">${people.slice(0, 6).map((r) => `<i style="--c:${esc(r.color)}"></i>`).join('')}</span>
+          </button>`);
+        }
+        $('grid').innerHTML = cells.join('');
+        showDay(selected);
+      }
+
+      function showDay(day) {
+        selected = day;
+        document.querySelectorAll('.cal-day').forEach((c) => c.classList.toggle('selected', c.dataset.day === day));
+        const wd = weekday(day);
+        const people = onLeaveOn(data.rows, day, data.holidays);
+        $('dayLabel').textContent = new Date(day + 'T00:00:00').toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long' });
+        $('dayCount').textContent = people.length ? `${people.length} on leave` : '';
+        const hol = data.holidays[day];
+        $('dayList').innerHTML = people.length
+          ? (hol ? `<div class="alert alert-info" style="margin:12px 16px">Public holiday · ${esc(hol)}</div>` : '') + leavePeopleHtml(people)
+          : `<div class="who-empty">${hol ? `Public holiday · ${esc(hol)}` : wd === 0 || wd === 6 ? 'Weekend' : 'Everyone is in ✓'}</div>`;
+      }
+
+      function goTo(y, m) {
+        year = y + Math.floor(m / 12);
+        month = ((m % 12) + 12) % 12;
+        load();
+      }
+
+      $('grid').addEventListener('click', (e) => {
+        const c = e.target.closest('[data-day]');
+        if (!c) return;
+        const day = c.dataset.day;
+        if (day.slice(0, 7) !== ymd(year, month, 1).slice(0, 7)) { selected = day; goTo(+day.slice(0, 4), +day.slice(5, 7) - 1); }
+        else showDay(day);
+      });
+      $('prevBtn').onclick = () => goTo(year, month - 1);
+      $('nextBtn').onclick = () => goTo(year, month + 1);
+      $('todayBtn').onclick = () => { selected = today(); goTo(+selected.slice(0, 4), +selected.slice(5, 7) - 1); };
+
+      goTo(+selected.slice(0, 4), +selected.slice(5, 7) - 1);
+    })();
+  </script>
+</body>
+</html>
