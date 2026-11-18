@@ -100,8 +100,8 @@
               <select name="role"><option value="staff">Staff</option><option value="director">Director (approves leave)</option><option value="admin">HR &amp; Admin</option></select></div>
             <div class="field"><label>Status</label>
               <select name="active"><option value="true">Active</option><option value="false">Inactive (cannot sign in)</option></select></div>
-            <div class="field" style="grid-column:1/-1"><label>New password <span class="muted" style="font-weight:500">(leave blank to keep current password)</span></label>
-              <input type="text" name="new_password" autocomplete="off" placeholder="At least 8 characters"></div>
+            <div class="field" style="grid-column:1/-1"><label>New PIN <span class="muted" style="font-weight:500">(leave blank to keep current PIN)</span></label>
+              <input type="text" name="new_password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="4 digits" style="max-width:160px"></div>
           </div>
           <label style="margin-top:6px">Leave entitlement for ${year} <span class="muted" style="font-weight:500">(leave blank to use default)</span></label>
           <table style="margin-bottom:4px">
@@ -132,7 +132,7 @@
                 if (!f.full_name.value.trim()) { toast('Name is required.', 'error'); return false; }
                 if (!f.staff_no.value.trim()) { toast('Staff ID is required for signing in.', 'error'); return false; }
                 const newPw = f.new_password.value;
-                if (newPw && newPw.length < 8) { toast('Password must be at least 8 characters.', 'error'); return false; }
+                if (newPw && !/^[0-9]{4}$/.test(newPw)) { toast('PIN must be exactly 4 digits.', 'error'); return false; }
                 const update = {
                   full_name: f.full_name.value.trim(),
                   staff_no: f.staff_no.value.trim() || null,
@@ -166,7 +166,7 @@
                   const r = await sb.from('leave_entitlements').delete().eq('user_id', p.id).eq('year', year).in('leave_type_id', removes);
                   if (r.error) { toast(errMsg(r.error), 'error'); return false; }
                 }
-                toast(newPw ? `Saved. New password for ${update.staff_no}: ${newPw}` : 'Staff details saved.');
+                toast(newPw ? `Saved. New PIN for ${update.staff_no}: ${newPw}` : 'Staff details saved.');
                 load();
               },
             },
@@ -187,8 +187,8 @@
             <div class="field"><label>Staff ID <span style="color:var(--danger)">*</span></label>
               <input type="text" name="staff_no" placeholder="e.g. AA002" autocapitalize="characters" required>
               <div class="hint">Used to sign in.</div></div>
-            <div class="field"><label>Password <span style="color:var(--danger)">*</span></label>
-              <input type="text" name="password" autocomplete="off" placeholder="At least 8 characters" required>
+            <div class="field"><label>PIN <span style="color:var(--danger)">*</span></label>
+              <input type="text" name="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="4 digits" required>
               <div class="hint">Give this to the staff.</div></div>
           </div>
           <div class="field"><label>Full name <span style="color:var(--danger)">*</span></label><input type="text" name="full_name" required></div>
@@ -209,7 +209,7 @@
                 const f = form.elements;
                 const staffNo = f.staff_no.value.trim().toUpperCase();
                 if (!staffNo || !f.full_name.value.trim()) { toast('Staff ID and full name are required.', 'error'); return false; }
-                if (f.password.value.length < 8) { toast('Password must be at least 8 characters.', 'error'); return false; }
+                if (!/^[0-9]{4}$/.test(f.password.value)) { toast('PIN must be exactly 4 digits.', 'error'); return false; }
                 const { error } = await sb.rpc('admin_create_staff', {
                   p_staff_no: staffNo,
                   p_full_name: f.full_name.value.trim(),
@@ -219,7 +219,7 @@
                   p_position: f.position.value.trim() || null,
                 });
                 if (error) { toast(errMsg(error), 'error'); return false; }
-                toast(`Account created. Staff ID: ${staffNo} · Password: ${f.password.value}`);
+                toast(`Account created. Staff ID: ${staffNo} · PIN: ${f.password.value}`);
                 load();
               },
             },
