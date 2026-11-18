@@ -16,8 +16,16 @@
     <div class="page-head">
       <div>
         <h1>Settings</h1>
-        <p>Leave types, default entitlements and public holidays.</p>
+        <p>Colour theme, leave types, default entitlements and public holidays.</p>
       </div>
+    </div>
+
+    <div class="card section">
+      <div class="card-head">
+        <h2>Colour theme</h2>
+        <span class="muted" style="font-size:13px">Applies to everyone, including the login page.</span>
+      </div>
+      <div class="card-pad theme-grid" id="themeGrid"></div>
     </div>
 
     <div class="card section">
@@ -139,6 +147,31 @@
         loadHolidays();
       });
       $('hYear').onchange = loadHolidays;
+
+      // ---------- colour theme ----------
+      const current = () => document.documentElement.dataset.theme;
+      function renderThemes() {
+        $('themeGrid').innerHTML = Object.entries(AAHR.THEMES).map(([key, label]) => `
+          <button type="button" class="theme-option${key === current() ? ' active' : ''}" data-theme-key="${key}">
+            <span class="theme-swatch" data-theme="${key}"><i></i><i></i><i></i></span>
+            <span>${esc(label)}${key === 'emerald' ? ' <small class="muted">(recommended)</small>' : ''}</span>
+          </button>`).join('');
+      }
+      $('themeGrid').addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-theme-key]');
+        if (!b) return;
+        const prev = current();
+        AAHR.applyTheme(b.dataset.themeKey);
+        renderThemes();
+        const { error } = await sb.from('app_settings').upsert({ key: 'theme', value: b.dataset.themeKey });
+        if (error) {
+          AAHR.applyTheme(prev);
+          renderThemes();
+          return toast(error.code === '42P01' ? 'Please re-run the latest schema.sql in Supabase first.' : errMsg(error), 'error');
+        }
+        toast(`Theme changed to ${AAHR.THEMES[b.dataset.themeKey]}.`);
+      });
+      renderThemes();
 
       loadTypes();
       loadHolidays();

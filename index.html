@@ -13,40 +13,74 @@
 </head>
 <body>
   <div class="auth">
-    <section class="auth-hero">
+    <section class="auth-hero" aria-label="About AA HR Group">
+      <span class="orb orb-1"></span><span class="orb orb-2"></span><span class="orb orb-3"></span>
+      <div class="particles" aria-hidden="true" style="position:absolute;inset:0;z-index:1"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+
       <div class="brand">
         <span class="brand-mark">AA</span>
-        <span class="brand-text"><strong>AA HR Group</strong><small>Ascend Advisory (AA) Group</small></span>
+        <span class="brand-text"><strong>AA HR Group</strong><small>Ascend Advisory Group</small></span>
       </div>
 
       <div class="hero-body">
-        <span class="hero-kicker">HR &amp; Admin Portal</span>
-        <h1>Your workplace,<br><em>simplified.</em></h1>
-        <p>One place for Ascend Advisory Group staff to apply for leave, track balances and get approvals — no more paper forms.</p>
-        <ul class="hero-features">
-          <li>
-            <span class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-            <span><strong>Apply leave in minutes</strong><small>Annual, casual, sick, emergency, maternity &amp; unpaid leave.</small></span>
-          </li>
-          <li>
-            <span class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
-            <span><strong>Director approval</strong><small>Every application goes straight to the Director for review.</small></span>
-          </li>
-          <li>
-            <span class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>
-            <span><strong>Real-time leave balance</strong><small>Always know how many days you have left.</small></span>
-          </li>
-        </ul>
+        <div class="float-stage" aria-hidden="true">
+          <div class="fcard fcard-apply" data-card="apply">
+            <div class="fcard-row">
+              <span class="fcard-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+              <span><strong>Annual Leave</strong><small>3 working days</small></span>
+            </div>
+            <div class="fcard-dates"><span>Mon<b>23</b></span><span class="on">Tue<b>24</b></span><span class="on">Wed<b>25</b></span><span class="on">Thu<b>26</b></span><span>Fri<b>27</b></span></div>
+          </div>
+
+          <div class="fcard fcard-approve" data-card="approve">
+            <div class="fcard-row">
+              <span class="fcard-ico ok"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></span>
+              <span><strong>Leave approved</strong><small>by Director · just now</small></span>
+            </div>
+          </div>
+
+          <div class="fcard fcard-balance" data-card="balance">
+            <div class="fcard-row" style="justify-content:space-between">
+              <span><small>Annual Leave balance</small><strong>12 of 14 days left</strong></span>
+              <span class="fcard-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>
+            </div>
+            <div class="fcard-bar"><i></i></div>
+          </div>
+        </div>
+
+        <div class="slides" id="slides">
+          <div class="slide active" data-card="">
+            <span class="hero-kicker">HR &amp; Admin Portal</span>
+            <h1>Your workplace,<br><em>simplified.</em></h1>
+            <p>One place for Ascend Advisory Group staff to apply for leave, track balances and get approvals. No more paper forms.</p>
+          </div>
+          <div class="slide" data-card="apply">
+            <span class="hero-kicker">Apply leave</span>
+            <h1>Apply in <em>minutes,</em><br>from anywhere.</h1>
+            <p>Annual, casual, sick, emergency, maternity or unpaid. Pick your dates and weekends and public holidays are left out for you.</p>
+          </div>
+          <div class="slide" data-card="approve">
+            <span class="hero-kicker">Director approval</span>
+            <h1>Approved with<br><em>one click.</em></h1>
+            <p>Every application goes straight to the Director. You see the decision and remarks as soon as it is made.</p>
+          </div>
+          <div class="slide" data-card="balance">
+            <span class="hero-kicker">Leave balance</span>
+            <h1>Always know<br>what's <em>left.</em></h1>
+            <p>Your entitlement, days taken and pending applications, updated in real time.</p>
+          </div>
+        </div>
+        <div class="dots" id="dots" role="tablist" aria-label="Slides"></div>
       </div>
 
-      <div class="hero-foot">© <span class="yr"></span> Ascend Advisory (AA) Group. All rights reserved.</div>
+      <div class="hero-foot">© <span class="yr"></span> Ascend Advisory Group. All rights reserved.</div>
     </section>
 
     <section class="auth-panel">
       <div class="auth-card">
         <div class="brand mobile-brand">
           <span class="brand-mark">AA</span>
-          <span class="brand-text"><strong>AA HR Group</strong><small>Ascend Advisory (AA) Group</small></span>
+          <span class="brand-text"><strong>AA HR Group</strong><small>Ascend Advisory Group</small></span>
         </div>
 
         <h2>Welcome back</h2>
@@ -88,6 +122,42 @@
     (async () => {
       const { sb, errMsg } = AAHR;
       document.querySelector('.yr').textContent = new Date().getFullYear();
+
+      // ---------- hero slideshow ----------
+      (() => {
+        const SLIDE_MS = 5500;
+        const slides = [...document.querySelectorAll('#slides .slide')];
+        const cards = [...document.querySelectorAll('.fcard')];
+        const dots = document.getElementById('dots');
+        dots.style.setProperty('--slide-ms', SLIDE_MS + 'ms');
+        dots.innerHTML = slides.map((_, i) => `<button type="button" role="tab" aria-label="Slide ${i + 1}"></button>`).join('');
+        const dotBtns = [...dots.children];
+        let idx = 0, timer = null;
+        function show(i) {
+          idx = (i + slides.length) % slides.length;
+          slides.forEach((s, n) => s.classList.toggle('active', n === idx));
+          dotBtns.forEach((d, n) => {
+            d.classList.remove('active');
+            if (n === idx) { void d.offsetWidth; d.classList.add('active'); } // restart progress animation
+            d.setAttribute('aria-selected', n === idx);
+          });
+          const focus = slides[idx].dataset.card;
+          cards.forEach((c) => {
+            c.classList.toggle('is-active', !!focus && c.dataset.card === focus);
+            c.classList.toggle('dim', !!focus && c.dataset.card !== focus);
+          });
+        }
+        const start = () => { stop(); timer = setInterval(() => show(idx + 1), SLIDE_MS); dots.classList.remove('paused'); };
+        const stop = () => { clearInterval(timer); dots.classList.add('paused'); };
+        dotBtns.forEach((d, n) => d.addEventListener('click', () => { show(n); start(); }));
+        // Pause only while the pointer is on the slide text or dots (the hero is half the screen)
+        [document.getElementById('slides'), dots].forEach((el) => {
+          el.addEventListener('mouseenter', stop);
+          el.addEventListener('mouseleave', start);
+        });
+        show(0);
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) start();
+      })();
       const alertBox = document.getElementById('alert');
       const showError = (msg) => { alertBox.textContent = msg; alertBox.hidden = false; };
 

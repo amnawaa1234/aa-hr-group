@@ -3,6 +3,27 @@
   const cfg = window.AAHR_CONFIG || {};
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
+  // ---------- colour theme ----------
+  const THEMES = {
+    emerald: 'Emerald & Gold',
+    navy: 'Navy & Gold',
+    burgundy: 'Burgundy & Gold',
+    plum: 'Royal Plum',
+    charcoal: 'Charcoal & Amber',
+  };
+  function applyTheme(t) {
+    if (!THEMES[t]) t = 'emerald';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('aahr_theme', t); } catch (_) {}
+    return t;
+  }
+  // Use the last known theme straight away (no flash), then refresh from the database.
+  let cachedTheme = null;
+  try { cachedTheme = localStorage.getItem('aahr_theme'); } catch (_) {}
+  applyTheme(cachedTheme || cfg.THEME);
+  sb.from('app_settings').select('value').eq('key', 'theme').maybeSingle()
+    .then(({ data }) => { if (data) applyTheme(data.value); });
+
   const ROLE_LABEL = { staff: 'Staff', director: 'Director', admin: 'HR & Admin' };
 
   const NAV = [
@@ -244,7 +265,7 @@
   }
 
   window.AAHR = {
-    sb, init, decide, cancelLeave, downloadCsv, signOut, getProfile, toast, modal, errMsg, icon, attachmentUrl,
+    sb, init, decide, THEMES, applyTheme, cancelLeave, downloadCsv, signOut, getProfile, toast, modal, errMsg, icon, attachmentUrl,
     esc, realEmail, fmtDate, fmtDateTime, fmtDays, statusBadge, refNo, initials, today, dateRange, ROLE_LABEL,
   };
 })();
