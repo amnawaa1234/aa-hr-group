@@ -63,18 +63,18 @@
             </div>
           </div>
           <div class="field">
-            <label for="password">Password</label>
+            <label for="password">PIN</label>
             <div class="input-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-              <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
-              <button type="button" class="icon-btn toggle-pw" id="togglePw" aria-label="Show password">
+              <input type="password" id="password" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="current-password" required>
+              <button type="button" class="icon-btn toggle-pw" id="togglePw" aria-label="Show PIN">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             </div>
           </div>
           <div class="auth-row">
             <label class="check" style="margin:0"><input type="checkbox" id="remember" checked> Remember me</label>
-            <a href="#" id="forgotLink">Forgot password?</a>
+            <a href="#" id="forgotLink">Forgot PIN?</a>
           </div>
           <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Sign in</button>
         </form>
@@ -108,7 +108,8 @@
         alertBox.hidden = true;
         const login = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
-        if (!login || !password) return showError('Please enter your Staff ID and password.');
+        if (!login || !password) return showError('Please enter your Staff ID and PIN.');
+        if (!/^[0-9]{4}$/.test(password)) return showError('PIN must be 4 digits.');
 
         const btn = document.getElementById('submitBtn');
         const reset = () => { btn.disabled = false; btn.textContent = 'Sign in'; };
@@ -120,13 +121,13 @@
         if (!login.includes('@')) {
           const { data, error } = await sb.rpc('login_email', { p_login: login });
           if (error) { reset(); return showError(errMsg(error)); }
-          if (!data) { reset(); return showError('Incorrect Staff ID or password.'); }
+          if (!data) { reset(); return showError('Incorrect Staff ID or PIN.'); }
           email = data;
         }
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) {
           reset();
-          return showError(error.message === 'Invalid login credentials' ? 'Incorrect Staff ID or password.' : errMsg(error));
+          return showError(error.message === 'Invalid login credentials' ? 'Incorrect Staff ID or PIN.' : errMsg(error));
         }
         // "Remember me" off → sign out when the browser session ends
         sessionStorage.setItem('aahr_active', '1');
@@ -137,8 +138,8 @@
       document.getElementById('forgotLink').onclick = (e) => {
         e.preventDefault();
         AAHR.modal({
-          title: 'Forgot password',
-          body: 'Please contact <strong>HR &amp; Admin</strong> to reset your password. They will give you a new temporary password.',
+          title: 'Forgot PIN',
+          body: 'Please contact <strong>HR &amp; Admin</strong> to reset your PIN. They will give you a new 4-digit PIN.',
           actions: [{ label: 'OK', class: 'btn-primary' }],
         });
       };
